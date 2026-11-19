@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#c92832">
+  <meta name="description" content="PokéScan — identificação e análise de cartas Pokémon TCG.">
+  <title>PokéScan — Scanner de cartas TCG</title>
+  <style>
+:root{--red:#c92832;--red2:#ef4548;--ink:#101b20;--screen:#10272a;--mint:#9fe6cf;--cream:#f3f0e7;--yellow:#f4cf65;--muted:#a9b7b5}
+*{box-sizing:border-box}body{margin:0;background:#e7e4dc;color:var(--ink);font-family:Arial,Helvetica,sans-serif;min-height:100vh;background-image:radial-gradient(#c9c5ba 0.7px,transparent .7px);background-size:9px 9px}
+button{font:inherit;cursor:pointer}.app-shell{max-width:900px;margin:auto;min-height:100vh;padding:0 22px 28px}.topbar{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #c9c5ba}.brand{display:flex;align-items:center;gap:12px;color:var(--ink);text-decoration:none}.brand strong{display:block;font-size:21px;letter-spacing:2px}.brand strong span{color:var(--red)}.brand small{display:block;font-size:8px;letter-spacing:2.4px;color:#6e7978;margin-top:3px}.brand-mark{width:40px;height:40px;border-radius:12px;background:var(--red);display:grid;place-items:center;box-shadow:inset -4px -4px 0 #9e1d27,0 3px 0 #8e1d25}.brand-mark span{width:19px;height:19px;border:3px solid white;border-radius:50%;position:relative}.brand-mark span:after{content:"";position:absolute;left:-3px;right:-3px;top:6px;border-top:3px solid white}.sound-toggle{border:1px solid #b9b6ad;border-radius:20px;padding:8px 12px;background:#f4f1e9;color:#475553;font-size:12px}.hero{padding:42px 0 25px}.eyebrow{font-size:10px;letter-spacing:2px;font-weight:bold;color:#5d6c68}.pulse{display:inline-block;width:7px;height:7px;background:#35a77c;border-radius:50%;margin-right:7px;box-shadow:0 0 0 4px #35a77c22}h1{font-size:clamp(32px,6vw,51px);line-height:1.02;letter-spacing:-2px;margin:16px 0 12px}h1 em{font-style:normal;color:var(--red)}.hero p{color:#5d6865;max-width:490px;font-size:14px;line-height:1.6;margin:0}
+.device{max-width:620px;margin:10px auto 28px;background:var(--red);border-radius:24px;padding:17px 18px 19px;box-shadow:0 8px 0 #98212a,0 18px 30px #1c292a26;border:1px solid #a51e28}.device-top{height:22px;display:flex;justify-content:space-between;align-items:flex-start;color:#ffe6d9;font-size:9px;letter-spacing:1.5px;font-weight:bold}.device-status{font-size:8px}.device-status i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#a7efc9;margin-right:5px}.screen{background:var(--screen);border:5px solid #7f2028;border-radius:13px;padding:12px;min-height:310px;position:relative;overflow:hidden;box-shadow:inset 0 0 25px #0008}.screen-grid{position:absolute;inset:0;background:linear-gradient(#a1e7d00c 1px,transparent 1px),linear-gradient(90deg,#a1e7d00c 1px,transparent 1px);background-size:22px 22px;pointer-events:none}.screen-content{position:relative;z-index:1;color:var(--mint);height:100%;display:flex;flex-direction:column}.screen-heading,.screen-footer{display:flex;justify-content:space-between;font-size:8px;letter-spacing:1.4px;color:#83b9ab}.scan-reticle{height:220px;max-width:270px;width:100%;margin:10px auto;position:relative;display:grid;place-items:center}.corner{position:absolute;width:26px;height:26px;border-color:var(--yellow);border-style:solid}.tl{top:0;left:0;border-width:2px 0 0 2px}.tr{top:0;right:0;border-width:2px 2px 0 0}.bl{bottom:0;left:0;border-width:0 0 2px 2px}.br{bottom:0;right:0;border-width:0 2px 2px 0}.scan-cross{font-size:25px;color:#b9dfd3;opacity:.8}.scan-line{position:absolute;left:8px;right:8px;height:1px;background:#9fe6cf88;top:50%;box-shadow:0 0 10px #9fe6cf}.scan-hint{position:absolute;bottom:16px;font-size:9px;letter-spacing:2px;color:#b6d5ca}.screen-footer{margin-top:auto}.device-controls{padding:16px 5px 0}.scan-button{width:100%;border:0;border-radius:10px;background:var(--cream);color:var(--ink);padding:13px 15px;display:flex;align-items:center;gap:13px;text-align:left;box-shadow:0 3px 0 #9c1e27}.scan-button:hover{background:white;transform:translateY(-1px)}.camera-icon{font-size:27px;color:var(--red)}.scan-button b{font-size:12px;letter-spacing:1px;display:block}.scan-button small{font-size:8px;letter-spacing:1px;color:#74807c;display:block;margin-top:4px}.arrow{margin-left:auto;font-size:20px;color:var(--red)}.control-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:11px}.secondary-button{border:1px solid #ffffff66;background:#a9232d;color:#fff1e9;border-radius:8px;padding:12px 8px;font-size:9px;font-weight:bold;letter-spacing:1px}.secondary-button:hover{background:#9d1f29}.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.quick-card{background:#f3f0e8;border:1px solid #d1cec4;border-radius:10px;padding:14px;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;min-height:83px}.quick-icon{font-size:22px;color:var(--red)}.quick-card b{font-size:10px;letter-spacing:1px;display:block}.quick-card small{display:block;font-size:9px;color:#7b8580;margin-top:5px;line-height:1.3}.soon{grid-column:2;font-size:7px;letter-spacing:1px;color:#9c6a25;margin-top:-5px}footer{display:flex;justify-content:space-between;color:#7d8580;font-size:8px;letter-spacing:1.3px;padding:26px 0 0}
+.modal{border:1px solid #b8b6ad;border-radius:14px;padding:20px;width:min(92vw,480px);background:#f3f0e7;color:var(--ink);box-shadow:0 20px 70px #0005}.modal::backdrop{background:#0c1719bb;backdrop-filter:blur(3px)}.modal-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:1.2px;margin-bottom:16px}.close{border:0;background:transparent;font-size:25px;color:#6d7772}.camera-stage{height:260px;background:#10272a;border-radius:9px;position:relative;overflow:hidden;display:grid;place-items:center}.camera-stage video{width:100%;height:100%;object-fit:cover;display:none}.camera-placeholder{color:var(--mint);display:flex;flex-direction:column;align-items:center;gap:9px}.camera-placeholder span{font-size:40px}.camera-placeholder b{font-size:10px;letter-spacing:1.5px}.camera-placeholder small{font-size:10px;color:#a9b7b5}.camera-frame{position:absolute;inset:28px 65px;border:1px solid #f4cf65aa;pointer-events:none}.modal-note{font-size:11px;line-height:1.5;color:#66736e}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}.modal-actions .secondary-button{background:#66736e;border:0}.scan-button.compact{width:auto;padding:12px 18px;background:var(--red);color:white;box-shadow:none;font-size:9px;letter-spacing:1px}.scan-button.compact:hover{background:#a91e29}.modal label{font-size:9px;letter-spacing:1px;font-weight:bold}.search-input{display:block;width:100%;margin-top:8px;padding:13px;border:1px solid #c5c7be;border-radius:7px;background:#fff;font-size:14px}
+@media(max-width:620px){.app-shell{padding:0 15px 22px}.topbar{height:70px}.hero{padding:32px 0 20px}.screen{min-height:280px}.scan-reticle{height:190px}.quick-grid{grid-template-columns:1fr}.quick-card{min-height:68px}.soon{grid-column:2}footer{gap:10px;font-size:7px}.device{padding:14px}.sound-toggle span{font-size:10px}}
+
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="PokéScan início">
+        <span class="brand-mark"><span></span></span>
+        <span><strong>POKÉ<span>SCAN</span></strong><small>TCG FIELD DATABASE</small></span>
+      </a>
+      <button class="sound-toggle" id="soundToggle" aria-pressed="false" title="Ativar ou desativar sons">♫ <span>Sons: off</span></button>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow"><span class="pulse"></span> SISTEMA PRONTO · VERSÃO 0.1</div>
+        <h1>Sua próxima descoberta<br><em>começa aqui.</em></h1>
+        <p>Identifique cartas, consulte detalhes e investigue o potencial de cada descoberta.</p>
+      </section>
+
+      <section class="device" aria-label="Painel principal do PokéScan">
+        <div class="device-top"><span class="device-label">POKÉSCAN / UNIDADE 001</span><span class="device-status"><i></i> ONLINE</span></div>
+        <div class="screen">
+          <div class="screen-grid"></div>
+          <div class="screen-content">
+            <div class="screen-heading"><span>VISUAL SCANNER</span><span>PT-BR // TCG</span></div>
+            <div class="scan-reticle"><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div><div class="scan-cross">＋</div><div class="scan-line"></div><div class="scan-hint">AGUARDANDO CARTA</div></div>
+            <div class="screen-footer"><span>CAM: STANDBY</span><span>DATABASE: READY</span></div>
+          </div>
+        </div>
+        <div class="device-controls">
+          <button class="scan-button" id="scanButton"><span class="camera-icon">◎</span><span><b>INICIAR SCANNER</b><small>ABRIR CÂMERA DO DISPOSITIVO</small></span><span class="arrow">↗</span></button>
+          <div class="control-row"><button class="secondary-button" id="searchButton">⌕ &nbsp; BUSCA MANUAL</button><button class="secondary-button" id="aboutButton">ⓘ &nbsp; SOBRE</button></div>
+        </div>
+      </section>
+
+      <section class="quick-grid">
+        <article class="quick-card"><span class="quick-icon">▤</span><div><b>CATÁLOGO</b><small>Pokémon · Treinadores · Energias</small></div><span class="soon">EM BREVE</span></article>
+        <article class="quick-card"><span class="quick-icon">◇</span><div><b>MERCADO</b><small>Referência de preços no Brasil</small></div><span class="soon">EM BREVE</span></article>
+        <article class="quick-card"><span class="quick-icon">⌁</span><div><b>ANÁLISE TÁTICA</b><small>Formato Standard e sinergias</small></div><span class="soon">EM BREVE</span></article>
+      </section>
+      <footer><span>POKÉSCAN © 2026</span><span>PROJETO INDEPENDENTE · NÃO OFICIAL</span></footer>
+    </main>
+  </div>
+
+  <dialog id="cameraDialog" class="modal">
+    <div class="modal-head"><b>SCANNER DE CARTAS</b><button class="close" data-close>×</button></div>
+    <div class="camera-stage"><video id="cameraVideo" autoplay playsinline></video><div class="camera-placeholder" id="cameraPlaceholder"><span>◎</span><b>CÂMERA EM ESPERA</b><small>Permita o acesso à câmera quando solicitado.</small></div><div class="camera-frame"></div></div>
+    <p class="modal-note" id="cameraMessage">O módulo de captura será ativado nesta etapa de desenvolvimento.</p>
+    <div class="modal-actions"><button class="secondary-button" data-close>FECHAR</button><button class="scan-button compact" id="captureButton" disabled>CAPTURAR</button></div>
+  </dialog>
+
+  <dialog id="searchDialog" class="modal">
+    <div class="modal-head"><b>BUSCA NO CATÁLOGO</b><button class="close" data-close>×</button></div>
+    <label for="cardSearch">NOME DA CARTA OU COLEÇÃO</label>
+    <input id="cardSearch" class="search-input" type="search" placeholder="Ex.: Charizard, 151, Fogo...">
+    <p class="modal-note">A busca será conectada ao catálogo de cartas em uma próxima versão.</p>
+    <div class="modal-actions"><button class="secondary-button" data-close>FECHAR</button><button class="scan-button compact" id="searchSubmit">PESQUISAR</button></div>
+  </dialog>
+
+  <dialog id="aboutDialog" class="modal">
+    <div class="modal-head"><b>SOBRE O POKÉSCAN</b><button class="close" data-close>×</button></div>
+    <p>Um projeto independente para identificar e explorar cartas do Pokémon Trading Card Game em português, com informações de coleção, mercado e estratégia.</p>
+    <p class="modal-note">PokéScan é um projeto de fã, sem vínculo oficial com Nintendo, The Pokémon Company ou Creatures Inc.</p>
+    <div class="modal-actions"><button class="scan-button compact" data-close>ENTENDI</button></div>
+  </dialog>
+  <script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const dialogs = ["cameraDialog", "searchDialog", "aboutDialog"].map($);
+  const soundToggle = $("soundToggle");
+  let soundOn = false;
+
+  function tone(freq = 660, duration = 0.08) {
+    if (!soundOn) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.035, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + duration);
+      osc.onended = () => ctx.close();
+    } catch (_) {}
+  }
+
+  $("scanButton").addEventListener("click", () => { $("cameraDialog").showModal(); tone(520); });
+  $("searchButton").addEventListener("click", () => $("searchDialog").showModal());
+  $("aboutButton").addEventListener("click", () => $("aboutDialog").showModal());
+  document.querySelectorAll("[data-close]").forEach(btn => btn.addEventListener("click", () => {
+    const dialog = btn.closest("dialog");
+    if (dialog) dialog.close();
+  }));
+  dialogs.forEach(dialog => dialog.addEventListener("click", e => {
+    if (e.target === dialog) dialog.close();
+  }));
+  soundToggle.addEventListener("click", () => {
+    soundOn = !soundOn;
+    soundToggle.setAttribute("aria-pressed", String(soundOn));
+    soundToggle.querySelector("span").textContent = `Sons: ${soundOn ? "on" : "off"}`;
+    tone(740);
+  });
+  $("searchSubmit").addEventListener("click", () => {
+    const term = $("cardSearch").value.trim();
+    $("cardSearch").focus();
+    if (term) {
+      $("cardSearch").setCustomValidity("O catálogo será conectado na próxima etapa.");
+      $("cardSearch").reportValidity();
+      $("cardSearch").setCustomValidity("");
+    }
+  });
+})();
+</script>
+  <script>
+(() => {
+  const video = document.getElementById("cameraVideo");
+  const placeholder = document.getElementById("cameraPlaceholder");
+  const message = document.getElementById("cameraMessage");
+  const capture = document.getElementById("captureButton");
+  let stream = null;
+
+  async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      message.textContent = "Seu navegador não disponibilizou acesso à câmera. Abra o app em um navegador atualizado e usando HTTPS.";
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      video.srcObject = stream;
+      video.style.display = "block";
+      placeholder.style.display = "none";
+      capture.disabled = false;
+      message.textContent = "Câmera conectada. A identificação automática de cartas será adicionada em uma próxima etapa.";
+    } catch (error) {
+      message.textContent = error.name === "NotAllowedError"
+        ? "Acesso à câmera negado. Autorize a câmera nas permissões do navegador e tente novamente."
+        : "Não foi possível iniciar a câmera neste dispositivo.";
+    }
+  }
+
+  document.getElementById("cameraDialog").addEventListener("close", () => {
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    stream = null;
+    video.srcObject = null;
+    video.style.display = "none";
+    placeholder.style.display = "flex";
+    capture.disabled = true;
+  });
+  document.getElementById("scanButton").addEventListener("click", startCamera);
+  capture.addEventListener("click", () => {
+    message.textContent = "Captura de imagem será implementada junto ao módulo de reconhecimento.";
+  });
+})();
+</script>
+</body>
+</html>
