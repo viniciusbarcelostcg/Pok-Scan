@@ -1,97 +1,89 @@
 
-export function createCameraController({ onState, onCapture }) {
-  let stream = null;
+import { createCameraController } from './camera.js';
+import { initializeSearch } from './card-catalog.js';
+import { setStatus, showInfo, beep } from './ui.js';
 
+(() => {
   const $ = (id) => document.getElementById(id);
+  let sound = false;
 
-  async function open() {
-    const dialog = $('cameraDialog');
-    const video = $('dialogVideo');
-    const placeholder = $('cameraPlaceholder');
-    const captureButton = $('capture');
+  const camera = createCameraController({
+    onState(message, status = 'STANDBY') {
+      $('cameraMessage').textContent = message;
+      setStatus(status);
+    },
 
-    if (!dialog || !video || !placeholder || !captureButton) {
-      onState('Elementos da câmera não encontrados.', 'CAMERA ERROR');
-      return;
+    onCapture() {
+      showInfo(
+        'IMAGEM CAPTURADA',
+        'A estrutura de reconhecimento está preparada. OCR, busca visual e IA serão conectados nas próximas etapas.'
+      );
+      beep(sound);
     }
+  });
 
-    if (!dialog.open) dialog.showModal();
+  const openSearch = () => $('searchDialog').showModal();
 
-    onState('Aguardando autorização para acessar a câmera.', 'STARTING');
+  ['scan', 'quick', 'start'].forEach(id => {
+    $(id).addEventListener('click', () => camera.open());
+  });
 
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('UNSUPPORTED');
+  ['manual', 'search'].forEach(id => {
+    $(id).addEventListener('click', openSearch);
+  });
+
+  $('about').addEventListener('click', () => {
+    $('aboutDialog').showModal();
+  });
+
+  document.querySelectorAll('[data-close]').forEach(button => {
+    button.addEventListener('click', () => {
+      button.closest('dialog').close();
+    });
+  });
+
+  document.querySelectorAll('dialog').forEach(dialog => {
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+
+  $('cameraDialog').addEventListener('close', () => camera.close());
+
+  $('capture').addEventListener('click', () => camera.capture());
+
+  $('sound').addEventListener('click', () => {
+    sound = !sound;
+    $('sound').textContent = '♫  Sons: ' + (sound ? 'on' : 'off');
+    beep(sound);
+  });
+
+  initializeSearch({
+    onSearch(query) {
+      showInfo(
+        'BUSCA RECEBIDA',
+        `Pesquisa por: ${query}. O catálogo será conectado na próxima etapa.`
+      );
+      $('searchDialog').close();
+    }
+  });
+
+  document.querySelectorAll('[data-do]').forEach(button => {
+    button.addEventListener('click', () => {
+      const action = button.dataset.do;
+      beep(sound);
+
+      if (action === 'scan') camera.open();
+      else if (action === 'search') openSearch();
+      else if (action === 'catalog') {
+        showInfo('CATÁLOGO TCG', 'Pokémon, Treinadores e Energias — módulo preparado para integração.');
       }
-
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false
-      });
-
-      video.srcObject = stream;
-      video.style.display = 'block';
-      placeholder.style.display = 'none';
-      await video.play();
-
-      captureButton.disabled = false;
-      onState('Câmera conectada. Posicione a carta e capture.', 'CAMERA ON');
-
-    } catch (error) {
-      const message = error.name === 'NotAllowedError'
-        ? 'Acesso à câmera negado. Verifique as permissões.'
-        : 'Não foi possível iniciar a câmera. Verifique o HTTPS e as permissões.';
-
-      onState(message, 'CAMERA ERROR');
-    }
-  }
-
-  function capture() {
-    const video = $('dialogVideo');
-
-    if (!video || !video.videoWidth || !video.videoHeight) {
-      onState('Aguarde a câmera iniciar antes de capturar.', 'WAITING');
-      return;
-    }
-
-    let canvas = $('captureCanvas');
-
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      canvas.id = 'captureCanvas';
-    }
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    canvas.getContext('2d').drawImage(
-      video, 0, 0, canvas.width, canvas.height
-    );
-
-    onCapture(canvas);
-    onState('Imagem capturada com sucesso.', 'CAPTURED');
-  }
-
-  function close() {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      stream = null;
-    }
-
-    const video = $('dialogVideo');
-    const placeholder = $('cameraPlaceholder');
-    const captureButton = $('capture');
-
-    if (video) {
-      video.srcObject = null;
-      video.style.display = 'none';
-    }
-
-    if (placeholder) placeholder.style.display = 'block';
-    if (captureButton) captureButton.disabled = true;
-
-    onState('Câmera desligada.', 'STANDBY');
-  }
-
-  return { open, capture, close };
-}
+      else if (action === 'market') {
+        showInfo('MERCADO BRASILEIRO', 'A consulta de preços será conectada após a identificação da carta.');
+      }
+      else {
+        showInfo('ANÁLISE TÁTICA', 'Dados de jogo, formato Standard e sinergias serão adicionados em etapa própria.');
+      }
+    });
+  });
+})();
