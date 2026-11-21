@@ -32,6 +32,7 @@ export function createCameraController({ onState, onCapture }) {
       video.srcObject = stream;
       video.style.display = 'block';
       placeholder.style.display = 'none';
+
       await video.play();
 
       captureButton.disabled = false;
@@ -54,22 +55,25 @@ export function createCameraController({ onState, onCapture }) {
       return;
     }
 
-    let canvas = $('captureCanvas');
-
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      canvas.id = 'captureCanvas';
-    }
-
+    const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    canvas.getContext('2d').drawImage(
-      video, 0, 0, canvas.width, canvas.height
-    );
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      onState('Não foi possível processar a imagem.', 'CAMERA ERROR');
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     onCapture(canvas);
-    onState('Imagem capturada com sucesso.', 'CAPTURED');
+
+    onState(
+      'Imagem capturada. O reconhecimento será conectado nas próximas fases.',
+      'CAPTURED'
+    );
   }
 
   function close() {
