@@ -6,12 +6,12 @@ export function createCameraController({ onState, onCapture }) {
 
   async function open() {
     const dialog = $('cameraDialog');
-    const video = $('cameraVideo');
-    const placeholder = $('placeholder');
+    const video = $('dialogVideo');
+    const placeholder = $('cameraPlaceholder');
     const captureButton = $('capture');
 
     if (!dialog || !video || !placeholder || !captureButton) {
-      onState('Não foi possível localizar os elementos da câmera.', 'CAMERA ERROR');
+      onState('Elementos da câmera não encontrados.', 'CAMERA ERROR');
       return;
     }
 
@@ -47,7 +47,7 @@ export function createCameraController({ onState, onCapture }) {
   }
 
   function capture() {
-    const video = $('cameraVideo');
+    const video = $('dialogVideo');
 
     if (!video || !video.videoWidth || !video.videoHeight) {
       onState('Aguarde a câmera iniciar antes de capturar.', 'WAITING');
@@ -64,8 +64,9 @@ export function createCameraController({ onState, onCapture }) {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    const context = canvas.getContext('2d');
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.getContext('2d').drawImage(
+      video, 0, 0, canvas.width, canvas.height
+    );
 
     onCapture(canvas);
     onState('Imagem capturada com sucesso.', 'CAPTURED');
@@ -77,8 +78,8 @@ export function createCameraController({ onState, onCapture }) {
       stream = null;
     }
 
-    const video = $('cameraVideo');
-    const placeholder = $('placeholder');
+    const video = $('dialogVideo');
+    const placeholder = $('cameraPlaceholder');
     const captureButton = $('capture');
 
     if (video) {
