@@ -13,11 +13,14 @@ import { setStatus, showInfo, beep } from './ui.js';
       setStatus(status);
     },
 
-    onCapture() {
+    onCapture(canvas) {
+      console.log('CAPTURA EXECUTADA:', canvas.width, canvas.height);
+
       showInfo(
-        'IMAGEM CAPTURADA',
-        'A estrutura de reconhecimento está preparada. OCR, busca visual e IA serão conectados nas próximas etapas.'
+        'IMAGEM CAPTURADA!',
+        `Imagem recebida com sucesso. Resolução: ${canvas.width} × ${canvas.height} pixels.`
       );
+
       beep(sound);
     }
   });
@@ -50,20 +53,20 @@ import { setStatus, showInfo, beep } from './ui.js';
 
   $('cameraDialog').addEventListener('close', () => camera.close());
 
-  $('capture').addEventListener('click', () => camera.capture());
+  $('capture').addEventListener('click', () => {
+    console.log('BOTÃO CAPTURAR CLICADO');
+    camera.capture();
+  });
 
   $('sound').addEventListener('click', () => {
     sound = !sound;
-    $('sound').textContent = '♫  Sons: ' + (sound ? 'on' : 'off');
+    $('sound').textContent = '♫ Sons: ' + (sound ? 'on' : 'off');
     beep(sound);
   });
 
   initializeSearch({
     onSearch(query) {
-      showInfo(
-        'BUSCA RECEBIDA',
-        `Pesquisa por: ${query}. O catálogo será conectado na próxima etapa.`
-      );
+      showInfo('BUSCA RECEBIDA', `Pesquisa por: ${query}`);
       $('searchDialog').close();
     }
   });
@@ -76,13 +79,13 @@ import { setStatus, showInfo, beep } from './ui.js';
       if (action === 'scan') camera.open();
       else if (action === 'search') openSearch();
       else if (action === 'catalog') {
-        showInfo('CATÁLOGO TCG', 'Pokémon, Treinadores e Energias — módulo preparado para integração.');
+        showInfo('CATÁLOGO TCG', 'Módulo preparado para integração.');
       }
       else if (action === 'market') {
-        showInfo('MERCADO BRASILEIRO', 'A consulta de preços será conectada após a identificação da carta.');
+        showInfo('MERCADO BRASILEIRO', 'Consulta de preços em desenvolvimento.');
       }
       else {
-        showInfo('ANÁLISE TÁTICA', 'Dados de jogo, formato Standard e sinergias serão adicionados em etapa própria.');
+        showInfo('ANÁLISE TÁTICA', 'Módulo em desenvolvimento.');
       }
     });
   });
