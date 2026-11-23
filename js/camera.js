@@ -15,25 +15,30 @@ export function createCameraController({ onState, onCapture }) {
     diagnosticPanel = document.createElement('div');
 
     Object.assign(diagnosticPanel.style, {
-      position: 'fixed',
-      top: '12px',
-      left: '12px',
-      right: '12px',
-      padding: '12px',
-      background: 'rgba(15, 20, 28, 0.94)',
+      position: 'relative',
+      marginTop: '8px',
+      padding: '10px',
+      background: '#17201d',
       color: '#ffffff',
       border: '1px solid #e33b35',
-      borderRadius: '10px',
-      fontSize: '12px',
-      lineHeight: '1.6',
+      borderRadius: '8px',
+      fontSize: '11px',
+      lineHeight: '1.5',
       fontFamily: 'Arial, sans-serif',
       whiteSpace: 'pre-wrap',
-      zIndex: '2147483646',
-      pointerEvents: 'none',
+      maxHeight: '115px',
+      overflowY: 'auto',
+      zIndex: '10000',
       display: 'none'
     });
 
-    document.body.appendChild(diagnosticPanel);
+    const message = $('cameraMessage');
+
+    if (message && message.parentNode) {
+      message.insertAdjacentElement('afterend', diagnosticPanel);
+    } else {
+      $('cameraDialog').appendChild(diagnosticPanel);
+    }
   }
 
   function showDiagnostic(text) {
@@ -43,6 +48,8 @@ export function createCameraController({ onState, onCapture }) {
   }
 
   function showFocusMarker(x, y) {
+    const dialog = $('cameraDialog');
+
     if (!focusMarker) {
       focusMarker = document.createElement('div');
 
@@ -59,7 +66,7 @@ export function createCameraController({ onState, onCapture }) {
         display: 'none'
       });
 
-      document.body.appendChild(focusMarker);
+      dialog.appendChild(focusMarker);
     }
 
     focusMarker.style.left = `${x}px`;
@@ -81,6 +88,8 @@ export function createCameraController({ onState, onCapture }) {
 
     const rect = video.getBoundingClientRect();
 
+    showFocusMarker(event.clientX, event.clientY);
+
     const x = Math.max(
       0,
       Math.min(1, (event.clientX - rect.left) / rect.width)
@@ -90,8 +99,6 @@ export function createCameraController({ onState, onCapture }) {
       0,
       Math.min(1, (event.clientY - rect.top) / rect.height)
     );
-
-    showFocusMarker(event.clientX, event.clientY);
 
     const track = stream.getVideoTracks()[0];
 
@@ -120,59 +127,31 @@ export function createCameraController({ onState, onCapture }) {
     let supported = {};
 
     try {
-      capabilities = track.getCapabilities
-        ? track.getCapabilities()
-        : {};
-    } catch (error) {
-      console.log('Não foi possível consultar capacidades:', error);
-    }
-
-    try {
-      settings = track.getSettings
-        ? track.getSettings()
-        : {};
-    } catch (error) {
-      console.log('Não foi possível consultar configurações:', error);
-    }
-
-    try {
+      capabilities = track.getCapabilities?.() || {};
+      settings = track.getSettings?.() || {};
       supported = navigator.mediaDevices.getSupportedConstraints();
     } catch (error) {
-      console.log('Não foi possível consultar recursos:', error);
+      console.log('Erro no diagnóstico:', error);
     }
 
     const modes = capabilities.focusMode || [];
-
-    const yesNo = (value) => value ? 'SIM' : 'NÃO';
+    const yesNo = value => value ? 'SIM' : 'NÃO';
 
     const report = [
       'DIAGNÓSTICO DA CÂMERA',
-      '',
       `Resolução: ${settings.width || '?'} × ${settings.height || '?'}`,
-      '',
       `Foco contínuo: ${yesNo(modes.includes('continuous'))}`,
       `Foco manual: ${yesNo(modes.includes('manual'))}`,
       `Foco único: ${yesNo(modes.includes('single-shot'))}`,
       `Foco por região: ${yesNo(!!supported.pointsOfInterest)}`,
-      '',
       `Modos encontrados: ${modes.length ? modes.join(', ') : 'Não informados'}`,
-      '',
       `Distância focal mínima: ${capabilities.focusDistance?.min ?? 'Não informada'}`,
       `Distância focal máxima: ${capabilities.focusDistance?.max ?? 'Não informada'}`,
-      '',
-      `Zoom mínimo: ${capabilities.zoom?.min ?? 'Não informado'}`,
-      `Zoom máximo: ${capabilities.zoom?.max ?? 'Não informado'}`,
-      '',
-      'Toque na imagem para testar o foco.'
+      `Zoom: ${capabilities.zoom?.min ?? '?'} a ${capabilities.zoom?.max ?? '?'}`,
+      'Toque na imagem para testar.'
     ].join('\n');
 
     showDiagnostic(report);
-
-    console.log('Diagnóstico completo:', {
-      capabilities,
-      settings,
-      supported
-    });
   }
 
   function addFocusListener() {
@@ -222,7 +201,7 @@ export function createCameraController({ onState, onCapture }) {
 
       const track = stream.getVideoTracks()[0];
 
-      if (track.applyConstraints && track.getCapabilities) {
+      if (track.getCapabilities) {
         const modes = track.getCapabilities().focusMode || [];
 
         if (modes.includes('continuous')) {
@@ -248,7 +227,6 @@ export function createCameraController({ onState, onCapture }) {
 
     } catch (error) {
       console.error('Erro na câmera:', error);
-
       stream = null;
 
       onState(
@@ -279,7 +257,6 @@ export function createCameraController({ onState, onCapture }) {
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
     onCapture(canvas);
 
     onState(
