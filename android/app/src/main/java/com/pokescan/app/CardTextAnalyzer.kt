@@ -1,0 +1,74 @@
+package com.pokescan.app
+
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.util.concurrent.atomic.AtomicBoolean
+
+class CardTextAnalyzer(
+    private val onTextRecognized: (String) -> Unit
+) : ImageAnalysis.Analyzer {
+
+    private val recognizer = TextRecognition.getClient(
+        TextRecognizerOptions.DEFAULT_OPTIONS
+    )
+
+    private val processing = AtomicBoolean(false)
+
+    private var lastAnalysisTime = 0L
+    private var lastText = ""
+
+    @OptIn(ExperimentalGetImage::class)
+    override fun analyze(imageProxy: ImageProxy) {
+
+        val now = System.currentTimeMillis()
+
+        if (
+            now - lastAnalysisTime < 700 ||
+            !processing.compareAndSet(false, true)
+        ) {
+            imageProxy.close()
+            return
+        }
+
+        val mediaImage = imageProxy.image
+
+        if (mediaImage == null) {
+            processing.set(false)
+            imageProxy.close()
+            return
+        }
+
+        lastAnalysisTime = now
+
+        val inputImage = InputImage.fromMediaImage(
+            mediaImage,
+            imageProxy.imageInfo.rotationDegrees
+        )
+
+        recognizer.process(inputImage)
+            .addOnSuccessListener { result ->
+
+                val recognizedText = result.text.trim()
+
+                if (
+                    recognizedText.isNotEmpty() &&
+                    recognizedText != lastText
+                ) {
+                    lastText = recognizedText
+                    onTextRecognized(recognizedText)
+                }
+            }
+            .addOnCompleteListener {
+                processing.set(false)
+                imageProxy.close()
+            }
+    }
+
+    fun close() {
+        recognizer.close()
+    }
+}
