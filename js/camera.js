@@ -4,6 +4,7 @@ export function createCameraController({ onState, onCapture }) {
   let focusMarker = null;
   let markerTimer = null;
   let diagnosticPanel = null;
+  let diagnosticText = null;
   let focusSlider = null;
   let video = null;
   let focusListenerAdded = false;
@@ -30,13 +31,16 @@ export function createCameraController({ onState, onCapture }) {
         whiteSpace: 'pre-wrap'
       });
 
+      diagnosticText = document.createElement('div');
+      diagnosticPanel.appendChild(diagnosticText);
+
       $('cameraMessage').insertAdjacentElement(
         'afterend',
         diagnosticPanel
       );
     }
 
-    diagnosticPanel.textContent = message;
+    diagnosticText.textContent = message;
   }
 
   function showFocusMarker(x, y) {
@@ -125,7 +129,7 @@ export function createCameraController({ onState, onCapture }) {
   }
 
   function createFocusSlider() {
-    if (!diagnosticPanel) return;
+    if (!diagnosticPanel || focusSlider) return;
 
     const label = document.createElement('div');
     label.textContent = 'CONTROLE MANUAL DE FOCO';
@@ -316,6 +320,7 @@ export function createCameraController({ onState, onCapture }) {
     if (diagnosticPanel) {
       diagnosticPanel.remove();
       diagnosticPanel = null;
+      diagnosticText = null;
     }
 
     focusSlider = null;
