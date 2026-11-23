@@ -34,15 +34,12 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
-            if (granted) {
-                startNativeCamera()
-            } else {
-                Toast.makeText(
-                    this,
-                    "Permissão da câmera necessária.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+            if (granted) startNativeCamera()
+            else Toast.makeText(
+                this,
+                "Permissão da câmera necessária.",
+                Toast.LENGTH_LONG
+            ).show()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,19 +54,18 @@ class MainActivity : AppCompatActivity() {
         webView.settings.domStorageEnabled = true
         webView.webViewClient = WebViewClient()
 
-        webView.addJavascriptInterface(
-            CameraBridge(),
-            "PokéScanAndroid"
-        )
+        webView.addJavascriptInterface(CameraBridge(), "PokéScanAndroid")
 
         findViewById<Button>(R.id.nativeCaptureButton)
-            .setOnClickListener {
-                captureNativePhoto()
-            }
+            .setOnClickListener { captureNativePhoto() }
 
         findViewById<Button>(R.id.nativeCloseButton)
             .setOnClickListener {
                 closeNativeCamera()
+                webView.evaluateJavascript(
+                    "document.getElementById('cameraDialog').close();",
+                    null
+                )
             }
 
         webView.loadUrl(
@@ -91,34 +87,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startNativeCamera() {
-        val cameraProviderFuture =
-            ProcessCameraProvider.getInstance(this)
+        val future = ProcessCameraProvider.getInstance(this)
 
-        cameraProviderFuture.addListener({
-
-            val cameraProvider = cameraProviderFuture.get()
-
+        future.addListener({
+            val provider = future.get()
             val preview = Preview.Builder().build()
 
-            preview.surfaceProvider =
-                cameraPreview.surfaceProvider
+            preview.surfaceProvider = cameraPreview.surfaceProvider
 
-            imageCapture = ImageCapture.Builder()
+            val captureUseCase = ImageCapture.Builder()
                 .setCaptureMode(
                     ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
                 )
                 .build()
 
             try {
-                cameraProvider.unbindAll()
+                provider.unbindAll()
 
-                cameraProvider.bindToLifecycle(
+                provider.bindToLifecycle(
                     this,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
-                    imageCapture
+                    captureUseCase
                 )
 
+                imageCapture = captureUseCase
                 cameraPreview.visibility = View.VISIBLE
                 cameraControls.visibility = View.VISIBLE
 
@@ -129,34 +122,27 @@ class MainActivity : AppCompatActivity() {
                     Toast.LENGTH_LONG
                 ).show()
             }
-
         }, ContextCompat.getMainExecutor(this))
     }
 
     private fun captureNativePhoto() {
         val capture = imageCapture ?: return
 
-        val photoFile = File(
-            cacheDir,
-            "pokescan_capture.jpg"
-        )
+        val photoFile = File(cacheDir, "pokescan_capture.jpg")
 
-        val outputOptions =
-            ImageCapture.OutputFileOptions.Builder(photoFile)
-                .build()
+        val options =
+            ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
         capture.takePicture(
-            outputOptions,
+            options,
             ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
 
                 override fun onImageSaved(
                     output: ImageCapture.OutputFileResults
                 ) {
-                    val bytes = photoFile.readBytes()
-
                     val encoded = Base64.encodeToString(
-                        bytes,
+                        photoFile.readBytes(),
                         Base64.NO_WRAP
                     )
 
@@ -173,9 +159,7 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                 }
 
-                override fun onError(
-                    exception: ImageCaptureException
-                ) {
+                override fun onError(exception: ImageCaptureException) {
                     Toast.makeText(
                         this@MainActivity,
                         "Erro ao capturar fotografia.",
@@ -187,8 +171,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun closeNativeCamera() {
-        if (!::cameraPreview.isInitialized) return
-
         imageCapture = null
 
         ProcessCameraProvider.getInstance(this).get()
@@ -202,23 +184,17 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun openCamera() {
-            runOnUiThread {
-                requestNativeCamera()
-            }
+            runOnUiThread { requestNativeCamera() }
         }
 
         @JavascriptInterface
         fun closeCamera() {
-            runOnUiThread {
-                closeNativeCamera()
-            }
+            runOnUiThread { closeNativeCamera() }
         }
 
         @JavascriptInterface
         fun capturePhoto() {
-            runOnUiThread {
-                captureNativePhoto()
-            }
+            runOnUiThread { captureNativePhoto() }
         }
     }
 }
