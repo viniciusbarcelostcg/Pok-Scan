@@ -19,7 +19,9 @@ class CardTextAnalyzer(
     private val processing = AtomicBoolean(false)
 
     private var lastAnalysisTime = 0L
-    private var lastText = ""
+    private var pendingText = ""
+    private var stableCount = 0
+    private var lastEmittedText = ""
 
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
@@ -54,12 +56,27 @@ class CardTextAnalyzer(
 
                 val recognizedText = result.text.trim()
 
-                if (
-                    recognizedText.isNotEmpty() &&
-                    recognizedText != lastText
-                ) {
-                    lastText = recognizedText
-                    onTextRecognized(recognizedText)
+                if (recognizedText.isNotEmpty()) {
+
+                    val normalizedText = recognizedText
+                        .uppercase()
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+
+                    if (normalizedText == pendingText) {
+                        stableCount++
+                    } else {
+                        pendingText = normalizedText
+                        stableCount = 1
+                    }
+
+                    if (
+                        stableCount >= 2 &&
+                        normalizedText != lastEmittedText
+                    ) {
+                        lastEmittedText = normalizedText
+                        onTextRecognized(recognizedText)
+                    }
                 }
             }
             .addOnCompleteListener {
