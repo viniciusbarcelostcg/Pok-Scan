@@ -15,9 +15,11 @@ export function createCameraController({ onState, onCapture }) {
       return;
     }
 
+    if (stream) close();
+
     if (!dialog.open) dialog.showModal();
 
-    onState('Aguardando autorização para acessar a câmera.', 'STARTING');
+    onState('Solicitando câmera em alta resolução...', 'STARTING');
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -25,25 +27,58 @@ export function createCameraController({ onState, onCapture }) {
       }
 
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 2560 },
+          frameRate: { ideal: 30, max: 30 }
+        }
       });
 
       video.srcObject = stream;
       video.style.display = 'block';
       placeholder.style.display = 'none';
 
+      const track = stream.getVideoTracks()[0];
+
+      if (track?.getCapabilities) {
+        const capabilities = track.getCapabilities();
+
+        if (
+          capabilities.focusMode &&
+          capabilities.focusMode.includes('continuous')
+        ) {
+          try {
+            await track.applyConstraints({
+              advanced: [{ focusMode: 'continuous' }]
+            });
+          } catch (error) {
+            console.log('Foco contínuo indisponível:', error);
+          }
+        }
+      }
+
       await video.play();
 
       captureButton.disabled = false;
-      onState('Câmera conectada. Posicione a carta e capture.', 'CAMERA ON');
+
+      onState(
+        `Câmera ativa: ${video.videoWidth} × ${video.videoHeight}`,
+        'CAMERA ON'
+      );
 
     } catch (error) {
-      const message = error.name === 'NotAllowedError'
-        ? 'Acesso à câmera negado. Verifique as permissões.'
-        : 'Não foi possível iniciar a câmera. Verifique o HTTPS e as permissões.';
+      console.error('Erro na câmera:', error);
 
-      onState(message, 'CAMERA ERROR');
+      stream = null;
+
+      onState(
+        error.name === 'NotAllowedError'
+          ? 'Acesso à câmera negado.'
+          : 'Não foi possível iniciar a câmera.',
+        'CAMERA ERROR'
+      );
     }
   }
 
@@ -51,27 +86,34 @@ export function createCameraController({ onState, onCapture }) {
     const video = $('dialogVideo');
 
     if (!video || !video.videoWidth || !video.videoHeight) {
-      onState('Aguarde a câmera iniciar antes de capturar.', 'WAITING');
+      onState('Aguarde a câmera iniciar.', 'WAITING');
       return;
     }
 
     const canvas = document.createElement('canvas');
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
     const context = canvas.getContext('2d');
 
     if (!context) {
-      onState('Não foi possível processar a imagem.', 'CAMERA ERROR');
+      onState('Erro ao processar a imagem.', 'CAMERA ERROR');
       return;
     }
 
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    context.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
 
     onCapture(canvas);
 
     onState(
-      'Imagem capturada. O reconhecimento será conectado nas próximas fases.',
+      `Imagem capturada: ${canvas.width} × ${canvas.height}`,
       'CAPTURED'
     );
   }
