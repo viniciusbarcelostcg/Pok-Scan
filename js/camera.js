@@ -4,8 +4,11 @@ export function createCameraController({ onState, onCapture }) {
   let focusMarker = null;
   let markerTimer = null;
   let diagnosticPanel = null;
+  let focusSlider = null;
   let video = null;
   let focusListenerAdded = false;
+  let focusMin = 0;
+  let focusMax = 0;
 
   const $ = (id) => document.getElementById(id);
 
@@ -15,7 +18,6 @@ export function createCameraController({ onState, onCapture }) {
     diagnosticPanel = document.createElement('div');
 
     Object.assign(diagnosticPanel.style, {
-      position: 'relative',
       marginTop: '8px',
       padding: '10px',
       background: '#17201d',
@@ -26,25 +28,14 @@ export function createCameraController({ onState, onCapture }) {
       lineHeight: '1.5',
       fontFamily: 'Arial, sans-serif',
       whiteSpace: 'pre-wrap',
-      maxHeight: '115px',
-      overflowY: 'auto',
-      zIndex: '10000',
-      display: 'none'
+      maxHeight: '180px',
+      overflowY: 'auto'
     });
 
-    const message = $('cameraMessage');
-
-    if (message && message.parentNode) {
-      message.insertAdjacentElement('afterend', diagnosticPanel);
-    } else {
-      $('cameraDialog').appendChild(diagnosticPanel);
-    }
-  }
-
-  function showDiagnostic(text) {
-    createDiagnosticPanel();
-    diagnosticPanel.textContent = text;
-    diagnosticPanel.style.display = 'block';
+    $('cameraMessage').insertAdjacentElement(
+      'afterend',
+      diagnosticPanel
+    );
   }
 
   function showFocusMarker(x, y) {
@@ -62,8 +53,7 @@ export function createCameraController({ onState, onCapture }) {
         boxShadow: '0 0 12px rgba(255,216,74,.8)',
         transform: 'translate(-50%, -50%)',
         pointerEvents: 'none',
-        zIndex: '2147483647',
-        display: 'none'
+        zIndex: '2147483647'
       });
 
       dialog.appendChild(focusMarker);
@@ -77,18 +67,50 @@ export function createCameraController({ onState, onCapture }) {
     clearTimeout(markerTimer);
 
     markerTimer = setTimeout(() => {
-      if (focusMarker) {
-        focusMarker.style.opacity = '0';
-      }
+      if (focusMarker) focusMarker.style.opacity = '0';
     }, 1400);
+  }
+
+  async function changeManualFocus() {
+    if (!stream || !focusSlider) return;
+
+    const track = stream.getVideoTracks()[0];
+
+    const percentage = Number(focusSlider.value) / 100;
+    const distance = focusMin + (focusMax - focusMin) * percentage;
+
+    try {
+      await track.applyConstraints({
+        advanced: [{
+          focusMode: 'manual',
+          focusDistance: distance
+        }]
+      });
+
+      const settings = track.getSettings();
+      const actual = settings.focusDistance;
+
+      onState(
+        actual !== undefined
+          ? `Foco manual aplicado: ${actual.toFixed(3)}`
+          : 'Comando de foco manual enviado.',
+        'MANUAL FOCUS'
+      );
+
+    } catch (error) {
+      console.error('Erro no foco manual:', error);
+
+      onState(
+        'A câmera não aceitou esse ajuste de foco.',
+        'FOCUS ERROR'
+      );
+    }
   }
 
   async function focusAt(event) {
     if (!stream || !video) return;
 
     const rect = video.getBoundingClientRect();
-
-    showFocusMarker(event.clientX, event.clientY);
 
     const x = Math.max(
       0,
@@ -100,6 +122,8 @@ export function createCameraController({ onState, onCapture }) {
       Math.min(1, (event.clientY - rect.top) / rect.height)
     );
 
+    showFocusMarker(event.clientX, event.clientY);
+
     const track = stream.getVideoTracks()[0];
 
     try {
@@ -109,49 +133,74 @@ export function createCameraController({ onState, onCapture }) {
         }]
       });
 
-      onState('Ponto de foco enviado à câmera.', 'FOCUS');
+      onState(
+        'Região selecionada. Ajuste o foco manual no controle abaixo.',
+        'FOCUS'
+      );
 
     } catch (error) {
-      console.log('Erro no foco por toque:', error);
-
       onState(
-        'Toque reconhecido, mas o foco por região não foi aceito.',
-        'FOCUS LIMITED'
+        'Região marcada. Ajuste o foco pelo controle manual.',
+        'FOCUS'
       );
     }
   }
 
   function diagnose(track) {
-    let capabilities = {};
-    let settings = {};
-    let supported = {};
+    const capabilities = track.getCapabilities
+      ? track.getCapabilities()
+      : {};
 
-    try {
-      capabilities = track.getCapabilities?.() || {};
-      settings = track.getSettings?.() || {};
-      supported = navigator.mediaDevices.getSupportedConstraints();
-    } catch (error) {
-      console.log('Erro no diagnóstico:', error);
-    }
+    const settings = track.getSettings
+      ? track.getSettings()
+      : {};
 
     const modes = capabilities.focusMode || [];
-    const yesNo = value => value ? 'SIM' : 'NÃO';
 
-    const report = [
+    focusMin = capabilities.focusDistance?.min ?? 0;
+    focusMax = capabilities.focusDistance?.max ?? 0;
+
+    createDiagnosticPanel();
+
+    diagnosticPanel.textContent = [
       'DIAGNÓSTICO DA CÂMERA',
       `Resolução: ${settings.width || '?'} × ${settings.height || '?'}`,
-      `Foco contínuo: ${yesNo(modes.includes('continuous'))}`,
-      `Foco manual: ${yesNo(modes.includes('manual'))}`,
-      `Foco único: ${yesNo(modes.includes('single-shot'))}`,
-      `Foco por região: ${yesNo(!!supported.pointsOfInterest)}`,
-      `Modos encontrados: ${modes.length ? modes.join(', ') : 'Não informados'}`,
-      `Distância focal mínima: ${capabilities.focusDistance?.min ?? 'Não informada'}`,
-      `Distância focal máxima: ${capabilities.focusDistance?.max ?? 'Não informada'}`,
-      `Zoom: ${capabilities.zoom?.min ?? '?'} a ${capabilities.zoom?.max ?? '?'}`,
-      'Toque na imagem para testar.'
+      `Foco contínuo: ${modes.includes('continuous') ? 'SIM' : 'NÃO'}`,
+      `Foco manual: ${modes.includes('manual') ? 'SIM' : 'NÃO'}`,
+      `Foco por região: ${navigator.mediaDevices.getSupportedConstraints().pointsOfInterest ? 'SIM' : 'NÃO'}`,
+      `Distância focal: ${focusMin.toFixed(4)} a ${focusMax.toFixed(4)}`
     ].join('\n');
 
-    showDiagnostic(report);
+    if (modes.includes('manual') && focusMax > focusMin) {
+      const label = document.createElement('div');
+      label.textContent = 'AJUSTE MANUAL DE FOCO';
+      label.style.marginTop = '12px';
+      label.style.fontWeight = 'bold';
+
+      const instructions = document.createElement('div');
+      instructions.textContent = 'Deslize lentamente até encontrar a imagem mais nítida.';
+      instructions.style.marginBottom = '8px';
+
+      focusSlider = document.createElement('input');
+      focusSlider.type = 'range';
+      focusSlider.min = '0';
+      focusSlider.max = '100';
+      focusSlider.step = '1';
+      focusSlider.value = '50';
+
+      focusSlider.style.width = '100%';
+      focusSlider.style.accentColor = '#ffd84a';
+
+      focusSlider.addEventListener('change', changeManualFocus);
+
+      diagnosticPanel.appendChild(label);
+      diagnosticPanel.appendChild(instructions);
+      diagnosticPanel.appendChild(focusSlider);
+    } else {
+      const message = document.createElement('div');
+      message.textContent = 'Controle manual de distância indisponível.';
+      diagnosticPanel.appendChild(message);
+    }
   }
 
   function addFocusListener() {
@@ -200,20 +249,6 @@ export function createCameraController({ onState, onCapture }) {
       await video.play();
 
       const track = stream.getVideoTracks()[0];
-
-      if (track.getCapabilities) {
-        const modes = track.getCapabilities().focusMode || [];
-
-        if (modes.includes('continuous')) {
-          try {
-            await track.applyConstraints({
-              advanced: [{ focusMode: 'continuous' }]
-            });
-          } catch (error) {
-            console.log('Foco contínuo não aceito:', error);
-          }
-        }
-      }
 
       addFocusListener();
       diagnose(track);
@@ -292,6 +327,7 @@ export function createCameraController({ onState, onCapture }) {
       diagnosticPanel = null;
     }
 
+    focusSlider = null;
     clearTimeout(markerTimer);
 
     onState('Câmera desligada.', 'STANDBY');
