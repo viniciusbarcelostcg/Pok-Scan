@@ -3,6 +3,7 @@ package com.pokescan.app
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -13,16 +14,21 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var cameraPreview: PreviewView
     private lateinit var cameraControls: LinearLayout
+
+    private var imageCapture: ImageCapture? = null
 
     private val permissionLauncher =
         registerForActivityResult(
@@ -56,6 +62,11 @@ class MainActivity : AppCompatActivity() {
             "PokéScanAndroid"
         )
 
+        findViewById<Button>(R.id.nativeCaptureButton)
+            .setOnClickListener {
+                captureNativePhoto()
+            }
+
         findViewById<Button>(R.id.nativeCloseButton)
             .setOnClickListener {
                 closeNativeCamera()
@@ -88,19 +99,24 @@ class MainActivity : AppCompatActivity() {
             val cameraProvider = cameraProviderFuture.get()
 
             val preview = Preview.Builder().build()
+
             preview.surfaceProvider =
                 cameraPreview.surfaceProvider
 
-            val cameraSelector =
-                CameraSelector.DEFAULT_BACK_CAMERA
+            imageCapture = ImageCapture.Builder()
+                .setCaptureMode(
+                    ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                )
+                .build()
 
             try {
                 cameraProvider.unbindAll()
 
                 cameraProvider.bindToLifecycle(
                     this,
-                    cameraSelector,
-                    preview
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    imageCapture
                 )
 
                 cameraPreview.visibility = View.VISIBLE
@@ -117,11 +133,66 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    private fun closeNativeCamera() {
-        val cameraProvider =
-            ProcessCameraProvider.getInstance(this).get()
+    private fun captureNativePhoto() {
+        val capture = imageCapture ?: return
 
-        cameraProvider.unbindAll()
+        val photoFile = File(
+            cacheDir,
+            "pokescan_capture.jpg"
+        )
+
+        val outputOptions =
+            ImageCapture.OutputFileOptions.Builder(photoFile)
+                .build()
+
+        capture.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(this),
+            object : ImageCapture.OnImageSavedCallback {
+
+                override fun onImageSaved(
+                    output: ImageCapture.OutputFileResults
+                ) {
+                    val bytes = photoFile.readBytes()
+
+                    val encoded = Base64.encodeToString(
+                        bytes,
+                        Base64.NO_WRAP
+                    )
+
+                    webView.evaluateJavascript(
+                        "window.onNativePhotoCaptured && " +
+                        "window.onNativePhotoCaptured('data:image/jpeg;base64,$encoded');",
+                        null
+                    )
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Fotografia capturada!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                override fun onError(
+                    exception: ImageCaptureException
+                ) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Erro ao capturar fotografia.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        )
+    }
+
+    private fun closeNativeCamera() {
+        if (!::cameraPreview.isInitialized) return
+
+        imageCapture = null
+
+        ProcessCameraProvider.getInstance(this).get()
+            .unbindAll()
 
         cameraPreview.visibility = View.GONE
         cameraControls.visibility = View.GONE
@@ -140,6 +211,13 @@ class MainActivity : AppCompatActivity() {
         fun closeCamera() {
             runOnUiThread {
                 closeNativeCamera()
+            }
+        }
+
+        @JavascriptInterface
+        fun capturePhoto() {
+            runOnUiThread {
+                captureNativePhoto()
             }
         }
     }
