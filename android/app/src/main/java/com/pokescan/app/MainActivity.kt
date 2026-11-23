@@ -1,7 +1,8 @@
-
 package com.pokescan.app
 
 import android.os.Bundle
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -10,5 +11,16 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         setContentView(R.layout.activity_main)
+
+        val webView = findViewById<WebView>(R.id.webView)
+
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+
+        webView.webViewClient = WebViewClient()
+
+        webView.loadUrl(
+            "https://viniciusbarcelostcg.github.io/Pok-Scan/"
+        )
     }
 }
