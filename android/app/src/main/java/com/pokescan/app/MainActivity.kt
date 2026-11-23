@@ -2,10 +2,8 @@ package com.pokescan.app
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.hardware.camera2.CaptureRequest
 import android.os.Bundle
 import android.util.Base64
-import android.view.MotionEvent
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -14,18 +12,18 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.camera2.interop.Camera2Interop
-import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.FocusMeteringAction
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import org.json.JSONObject
 import java.io.File
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
@@ -34,7 +32,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraPreview: PreviewView
 
     private var imageCapture: ImageCapture? = null
-    private var activeCamera: Camera? = null
+    private var imageAnalysis: ImageAnalysis? = null
+    private var cardTextAnalyzer: CardTextAnalyzer? = null
+    private var analysisExecutor: ExecutorService? = null
 
     private val permissionLauncher =
         registerForActivityResult(
@@ -67,13 +67,6 @@ class MainActivity : AppCompatActivity() {
         cameraPreview.implementationMode =
             PreviewView.ImplementationMode.COMPATIBLE
 
-        cameraPreview.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
-                focusAt(event.x, event.y)
-            }
-            true
-        }
-
         webView.loadUrl(
             "https://viniciusbarcelostcg.github.io/Pok-Scan/"
         )
@@ -98,15 +91,7 @@ class MainActivity : AppCompatActivity() {
         future.addListener({
             val provider = future.get()
 
-            val previewBuilder = Preview.Builder()
-
-            Camera2Interop.Extender(previewBuilder)
-                .setCaptureRequestOption(
-                    CaptureRequest.CONTROL_AF_MODE,
-                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
-                )
-
-            val preview = previewBuilder.build()
+            val preview = Preview.Builder().build()
             preview.surfaceProvider = cameraPreview.surfaceProvider
 
             val captureUseCase = ImageCapture.Builder()
@@ -115,23 +100,66 @@ class MainActivity : AppCompatActivity() {
                 )
                 .build()
 
+            val analysisUseCase = ImageAnalysis.Builder()
+                .setBackpressureStrategy(
+                    ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+                )
+                .build()
+
+            val executor = Executors.newSingleThreadExecutor()
+
+            val analyzer = CardTextAnalyzer { recognizedText ->
+                runOnUiThread {
+                    val safeText = JSONObject.quote(recognizedText)
+
+                    webView.evaluateJavascript(
+                        """
+                        (function() {
+                            const message =
+                                document.getElementById('cameraMessage');
+
+                            if (message) {
+                                message.textContent =
+                                    'Texto detectado: ' + $safeText;
+                            }
+
+                            const status =
+                                document.getElementById('status');
+
+                            if (status) status.textContent = 'OCR';
+                        })();
+                        """.trimIndent(),
+                        null
+                    )
+                }
+            }
+
+            analysisUseCase.setAnalyzer(executor, analyzer)
+
             try {
                 provider.unbindAll()
 
-                activeCamera = provider.bindToLifecycle(
+                provider.bindToLifecycle(
                     this,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
-                    captureUseCase
+                    captureUseCase,
+                    analysisUseCase
                 )
 
                 imageCapture = captureUseCase
+                imageAnalysis = analysisUseCase
+                cardTextAnalyzer = analyzer
+                analysisExecutor = executor
 
                 cameraPreview.visibility = View.VISIBLE
 
                 positionPreviewInDialog()
 
             } catch (error: Exception) {
+                analyzer.close()
+                executor.shutdown()
+
                 Toast.makeText(
                     this,
                     "Não foi possível abrir a câmera.",
@@ -146,7 +174,9 @@ class MainActivity : AppCompatActivity() {
         webView.evaluateJavascript(
             """
             (function() {
-                const stage = document.querySelector('#cameraDialog .stage');
+                const stage =
+                    document.querySelector('#cameraDialog .stage');
+
                 if (!stage || !window.PokéScanAndroid) return;
 
                 const rect = stage.getBoundingClientRect();
@@ -158,7 +188,9 @@ class MainActivity : AppCompatActivity() {
                     rect.height
                 );
 
-                const capture = document.getElementById('capture');
+                const capture =
+                    document.getElementById('capture');
+
                 if (capture) capture.disabled = false;
             })();
             """.trimIndent(),
@@ -173,7 +205,6 @@ class MainActivity : AppCompatActivity() {
         height: Float
     ) {
         val density = resources.displayMetrics.density
-
         val root = webView.parent as FrameLayout
 
         val webLocation = IntArray(2)
@@ -198,23 +229,6 @@ class MainActivity : AppCompatActivity() {
                 leftMargin = leftPx
                 topMargin = topPx
             }
-    }
-
-    private fun focusAt(x: Float, y: Float) {
-        val camera = activeCamera ?: return
-
-        val point = cameraPreview.meteringPointFactory
-            .createPoint(x, y)
-
-        val action = FocusMeteringAction.Builder(
-            point,
-            FocusMeteringAction.FLAG_AF or
-                FocusMeteringAction.FLAG_AE
-        )
-            .setAutoCancelDuration(3, TimeUnit.SECONDS)
-            .build()
-
-        camera.cameraControl.startFocusAndMetering(action)
     }
 
     private fun captureNativePhoto() {
@@ -257,11 +271,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun closeNativeCamera() {
-        imageCapture = null
-        activeCamera = null
+        imageAnalysis?.clearAnalyzer()
 
         ProcessCameraProvider.getInstance(this).get()
             .unbindAll()
+
+        cardTextAnalyzer?.close()
+        analysisExecutor?.shutdown()
+
+        imageCapture = null
+        imageAnalysis = null
+        cardTextAnalyzer = null
+        analysisExecutor = null
 
         cameraPreview.visibility = View.GONE
 
