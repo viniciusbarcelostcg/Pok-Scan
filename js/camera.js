@@ -3,34 +3,33 @@ export function createCameraController({ onState, onCapture }) {
   let stream = null;
   let focusMarker = null;
   let markerTimer = null;
+  let video = null;
+  let focusListenerAdded = false;
 
   const $ = (id) => document.getElementById(id);
 
-  function showFocusMarker(dialog, x, y) {
+  function showFocusMarker(x, y) {
     if (!focusMarker) {
       focusMarker = document.createElement('div');
 
       Object.assign(focusMarker.style, {
-        position: 'absolute',
-        width: '54px',
-        height: '54px',
-        border: '2px solid #ffd84a',
+        position: 'fixed',
+        width: '58px',
+        height: '58px',
+        border: '3px solid #ffd84a',
         borderRadius: '8px',
-        boxShadow: '0 0 10px rgba(255,216,74,.55)',
+        boxShadow: '0 0 12px rgba(255,216,74,.8)',
         transform: 'translate(-50%, -50%)',
         pointerEvents: 'none',
-        zIndex: '9999',
-        display: 'none',
-        transition: 'opacity .2s ease'
+        zIndex: '2147483647',
+        display: 'none'
       });
 
-      dialog.appendChild(focusMarker);
+      document.body.appendChild(focusMarker);
     }
 
-    const rect = dialog.getBoundingClientRect();
-
-    focusMarker.style.left = `${x - rect.left}px`;
-    focusMarker.style.top = `${y - rect.top}px`;
+    focusMarker.style.left = `${x}px`;
+    focusMarker.style.top = `${y}px`;
     focusMarker.style.display = 'block';
     focusMarker.style.opacity = '1';
 
@@ -40,14 +39,11 @@ export function createCameraController({ onState, onCapture }) {
       if (focusMarker) {
         focusMarker.style.opacity = '0';
       }
-    }, 1200);
+    }, 1400);
   }
 
-  async function focusAt(video, event) {
-    if (!stream) return;
-
-    const track = stream.getVideoTracks()[0];
-    if (!track) return;
+  async function focusAt(event) {
+    if (!stream || !video) return;
 
     const rect = video.getBoundingClientRect();
 
@@ -61,52 +57,95 @@ export function createCameraController({ onState, onCapture }) {
       Math.min(1, (event.clientY - rect.top) / rect.height)
     );
 
-    showFocusMarker($('cameraDialog'), event.clientX, event.clientY);
+    showFocusMarker(event.clientX, event.clientY);
+
+    const track = stream.getVideoTracks()[0];
 
     try {
-      const supported = navigator.mediaDevices.getSupportedConstraints();
+      const supported =
+        navigator.mediaDevices.getSupportedConstraints();
 
       if (supported.pointsOfInterest) {
         await track.applyConstraints({
           advanced: [{
-            pointsOfInterest: [{ x, y }],
-            focusMode: 'continuous'
+            pointsOfInterest: [{ x, y }]
           }]
         });
 
-        onState('Ajustando foco no ponto selecionado...', 'FOCUS');
-        return;
+        onState('Ponto de foco enviado à câmera.', 'FOCUS');
+      } else {
+        onState(
+          'Toque reconhecido. Foco por região não suportado pelo navegador.',
+          'FOCUS LIMITED'
+        );
       }
-
-      const capabilities = track.getCapabilities?.();
-
-      if (capabilities?.focusMode?.includes('single-shot')) {
-        await track.applyConstraints({
-          advanced: [{ focusMode: 'single-shot' }]
-        });
-
-        onState('Solicitando ajuste automático de foco...', 'FOCUS');
-        return;
-      }
-
-      onState(
-        'Foco por toque não disponível neste aparelho.',
-        'FOCUS LIMITED'
-      );
-
     } catch (error) {
-      console.log('Foco por toque indisponível:', error);
+      console.log('Erro no foco por toque:', error);
 
       onState(
-        'A câmera não aceitou o ajuste de foco por toque.',
+        'Toque reconhecido, mas a câmera não aceitou o foco por região.',
         'FOCUS LIMITED'
       );
     }
   }
 
+  function diagnose(track) {
+    const capabilities = track.getCapabilities
+      ? track.getCapabilities()
+      : {};
+
+    const settings = track.getSettings
+      ? track.getSettings()
+      : {};
+
+    const supported =
+      navigator.mediaDevices.getSupportedConstraints();
+
+    const modes = capabilities.focusMode || [];
+
+    const continuous = modes.includes('continuous')
+      ? 'SIM'
+      : 'NÃO';
+
+    const manual = modes.includes('manual')
+      ? 'SIM'
+      : 'NÃO';
+
+    const singleShot = modes.includes('single-shot')
+      ? 'SIM'
+      : 'NÃO';
+
+    const region = supported.pointsOfInterest
+      ? 'SIM'
+      : 'NÃO';
+
+    console.log('===== DIAGNÓSTICO POKÉSCAN =====');
+    console.log('Resolução:', settings.width, 'x', settings.height);
+    console.log('Modos de foco:', modes);
+    console.log('Foco contínuo:', continuous);
+    console.log('Foco manual:', manual);
+    console.log('Foco de disparo único:', singleShot);
+    console.log('Foco por região:', region);
+    console.log('Recursos disponíveis:', capabilities);
+    console.log('Configurações atuais:', settings);
+
+    onState(
+      `Diagnóstico: contínuo ${continuous} | manual ${manual} | toque ${region}`,
+      'DIAGNOSTIC'
+    );
+  }
+
+  function addFocusListener() {
+    if (!video || focusListenerAdded) return;
+
+    video.addEventListener('pointerdown', focusAt);
+    focusListenerAdded = true;
+  }
+
   async function open() {
     const dialog = $('cameraDialog');
-    const video = $('dialogVideo');
+    video = $('dialogVideo');
+
     const placeholder = $('cameraPlaceholder');
     const captureButton = $('capture');
 
@@ -119,13 +158,9 @@ export function createCameraController({ onState, onCapture }) {
 
     if (!dialog.open) dialog.showModal();
 
-    onState('Solicitando câmera em alta resolução...', 'STARTING');
+    onState('Iniciando câmera...', 'STARTING');
 
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('UNSUPPORTED');
-      }
-
       stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -140,33 +175,34 @@ export function createCameraController({ onState, onCapture }) {
       video.style.display = 'block';
       video.style.cursor = 'crosshair';
       video.style.touchAction = 'manipulation';
+
       placeholder.style.display = 'none';
+
+      await video.play();
 
       const track = stream.getVideoTracks()[0];
 
-      if (track?.getCapabilities) {
-        const capabilities = track.getCapabilities();
+      if (track.applyConstraints && track.getCapabilities) {
+        const modes = track.getCapabilities().focusMode || [];
 
-        if (
-          capabilities.focusMode &&
-          capabilities.focusMode.includes('continuous')
-        ) {
+        if (modes.includes('continuous')) {
           try {
             await track.applyConstraints({
               advanced: [{ focusMode: 'continuous' }]
             });
           } catch (error) {
-            console.log('Foco contínuo indisponível:', error);
+            console.log('Foco contínuo não aceito:', error);
           }
         }
       }
 
-      await video.play();
+      addFocusListener();
+      diagnose(track);
 
       captureButton.disabled = false;
 
       onState(
-        `Câmera ativa: ${video.videoWidth} × ${video.videoHeight}. Toque para focar.`,
+        `Câmera ativa: ${video.videoWidth} × ${video.videoHeight}. Toque na imagem.`,
         'CAMERA ON'
       );
 
@@ -185,8 +221,6 @@ export function createCameraController({ onState, onCapture }) {
   }
 
   function capture() {
-    const video = $('dialogVideo');
-
     if (!video || !video.videoWidth || !video.videoHeight) {
       onState('Aguarde a câmera iniciar.', 'WAITING');
       return;
@@ -204,13 +238,7 @@ export function createCameraController({ onState, onCapture }) {
       return;
     }
 
-    context.drawImage(
-      video,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     onCapture(canvas);
 
@@ -226,14 +254,13 @@ export function createCameraController({ onState, onCapture }) {
       stream = null;
     }
 
-    const video = $('dialogVideo');
-    const placeholder = $('cameraPlaceholder');
-    const captureButton = $('capture');
-
     if (video) {
       video.srcObject = null;
       video.style.display = 'none';
     }
+
+    const placeholder = $('cameraPlaceholder');
+    const captureButton = $('capture');
 
     if (placeholder) placeholder.style.display = 'block';
     if (captureButton) captureButton.disabled = true;
@@ -246,18 +273,6 @@ export function createCameraController({ onState, onCapture }) {
     clearTimeout(markerTimer);
 
     onState('Câmera desligada.', 'STANDBY');
-  }
-
-  const video = $('dialogVideo');
-
-  if (video && !video.dataset.focusListener) {
-    video.addEventListener('pointerdown', event => {
-      if (event.pointerType === 'touch' || event.pointerType === 'mouse') {
-        focusAt(video, event);
-      }
-    });
-
-    video.dataset.focusListener = 'true';
   }
 
   return { open, capture, close };
