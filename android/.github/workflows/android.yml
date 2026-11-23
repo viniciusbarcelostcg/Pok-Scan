@@ -1,0 +1,44 @@
+
+name: Build PokéScan Android
+
+on:
+  push:
+    branches:
+      - nova-arquitetura
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Compile APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download source code
+        uses: actions/checkout@v4
+
+      - name: Configure Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build APK
+        run: gradle -p android assembleDebug
+
+      - name: Save APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokescan-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
