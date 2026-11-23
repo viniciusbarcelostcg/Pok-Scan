@@ -84,7 +84,6 @@ export function createCameraController({ onState, onCapture }) {
 
       try {
         await track.applyConstraints({
-          focusMode: 'manual',
           focusDistance: { ideal: distance }
         });
 
@@ -96,17 +95,17 @@ export function createCameraController({ onState, onCapture }) {
           : 'não informado';
 
         showDiagnostic(
-          `CONTROLE DE FOCO MANUAL\n` +
+          `TESTE DE FOCO ISOLADO\n` +
           `Valor solicitado: ${distance.toFixed(4)}\n` +
           `Valor informado pela câmera: ${result}\n` +
-          `Modo: ${settings.focusMode || 'não informado'}\n` +
+          `Modo informado: ${settings.focusMode || 'não informado'}\n` +
           `Resolução: ${settings.width} × ${settings.height}\n\n` +
-          `Observe a nitidez da carta enquanto movimenta o controle.`
+          `Observe se a nitidez muda ao movimentar o controle.`
         );
 
         onState(
           `Foco solicitado: ${distance.toFixed(4)} | Informado: ${result}`,
-          'MANUAL FOCUS'
+          'FOCUS TEST'
         );
 
       } catch (error) {
@@ -163,23 +162,21 @@ export function createCameraController({ onState, onCapture }) {
       ? track.getSettings()
       : {};
 
-    const modes = capabilities.focusMode || [];
-
     focusMin = capabilities.focusDistance?.min ?? 0;
     focusMax = capabilities.focusDistance?.max ?? 0;
+
+    const modes = capabilities.focusMode || [];
 
     const report =
       `DIAGNÓSTICO DA CÂMERA\n` +
       `Resolução: ${settings.width} × ${settings.height}\n` +
-      `Foco contínuo: ${modes.includes('continuous') ? 'SIM' : 'NÃO'}\n` +
-      `Foco manual: ${modes.includes('manual') ? 'SIM' : 'NÃO'}\n` +
-      `Foco por região: ${navigator.mediaDevices.getSupportedConstraints().pointsOfInterest ? 'SIM' : 'NÃO'}\n` +
+      `Modos encontrados: ${modes.join(', ') || 'nenhum'}\n` +
       `Distância focal: ${focusMin} a ${focusMax}\n` +
       `Foco atual: ${settings.focusDistance ?? 'não informado'}`;
 
     showDiagnostic(report);
 
-    if (modes.includes('manual') && focusMax > focusMin) {
+    if (focusMax > focusMin) {
       createFocusSlider();
     } else {
       showDiagnostic(report + '\n\nControle manual indisponível.');
