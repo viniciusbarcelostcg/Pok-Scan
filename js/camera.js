@@ -76,19 +76,14 @@ export function createCameraController({ onState, onCapture }) {
     const track = stream.getVideoTracks()[0];
 
     const percentage = Number(focusSlider.value) / 100;
-    const distance = focusMin +
-      (focusMax - focusMin) * percentage;
+    const distance =
+      focusMin + (focusMax - focusMin) * percentage;
 
     focusQueue = focusQueue.then(async () => {
       if (!stream) return;
 
       try {
-        const previousConstraints = track.getConstraints
-          ? track.getConstraints()
-          : {};
-
         await track.applyConstraints({
-          ...previousConstraints,
           focusMode: 'manual',
           focusDistance: { ideal: distance }
         });
@@ -103,14 +98,14 @@ export function createCameraController({ onState, onCapture }) {
         showDiagnostic(
           `CONTROLE DE FOCO MANUAL\n` +
           `Valor solicitado: ${distance.toFixed(4)}\n` +
-          `Valor aplicado: ${result}\n` +
-          `Modo informado: ${settings.focusMode || 'não informado'}\n` +
+          `Valor informado pela câmera: ${result}\n` +
+          `Modo: ${settings.focusMode || 'não informado'}\n` +
           `Resolução: ${settings.width} × ${settings.height}\n\n` +
-          `Continue deslizando até encontrar a maior nitidez.`
+          `Observe a nitidez da carta enquanto movimenta o controle.`
         );
 
         onState(
-          `Foco solicitado: ${distance.toFixed(4)} | Aplicado: ${result}`,
+          `Foco solicitado: ${distance.toFixed(4)} | Informado: ${result}`,
           'MANUAL FOCUS'
         );
 
@@ -191,7 +186,7 @@ export function createCameraController({ onState, onCapture }) {
     }
   }
 
-  async function focusAt(event) {
+  function focusAt(event) {
     if (!stream || !video) return;
 
     showFocusMarker(event.clientX, event.clientY);
