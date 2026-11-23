@@ -21,7 +21,7 @@ class CardTextAnalyzer(
     private var lastAnalysisTime = 0L
     private var pendingText = ""
     private var stableCount = 0
-    private var lastEmittedText = ""
+    private var lastEmittedTime = 0L
 
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
@@ -63,18 +63,29 @@ class CardTextAnalyzer(
                         .replace(Regex("\\s+"), " ")
                         .trim()
 
-                    if (normalizedText == pendingText) {
+                    val similarity = calculateSimilarity(
+                        normalizedText,
+                        pendingText
+                    )
+
+                    if (
+                        pendingText.isEmpty() ||
+                        similarity >= 0.65
+                    ) {
                         stableCount++
                     } else {
-                        pendingText = normalizedText
                         stableCount = 1
                     }
 
+                    pendingText = normalizedText
+
+                    val currentTime = System.currentTimeMillis()
+
                     if (
                         stableCount >= 2 &&
-                        normalizedText != lastEmittedText
+                        currentTime - lastEmittedTime >= 1800
                     ) {
-                        lastEmittedText = normalizedText
+                        lastEmittedTime = currentTime
                         onTextRecognized(recognizedText)
                     }
                 }
@@ -83,6 +94,23 @@ class CardTextAnalyzer(
                 processing.set(false)
                 imageProxy.close()
             }
+    }
+
+    private fun calculateSimilarity(
+        first: String,
+        second: String
+    ): Double {
+
+        if (first.isEmpty() || second.isEmpty()) return 0.0
+
+        val firstWords = first.split(" ").toSet()
+        val secondWords = second.split(" ").toSet()
+
+        val intersection = firstWords.intersect(secondWords).size
+        val union = firstWords.union(secondWords).size
+
+        return if (union == 0) 0.0
+        else intersection.toDouble() / union
     }
 
     fun close() {
