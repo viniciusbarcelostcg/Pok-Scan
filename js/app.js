@@ -1,4 +1,3 @@
-
 import { createCameraController } from './camera.js';
 import { initializeSearch } from './card-catalog.js';
 import { setStatus, showInfo, beep } from './ui.js';
@@ -7,6 +6,21 @@ import { setStatus, showInfo, beep } from './ui.js';
   const $ = (id) => document.getElementById(id);
   let sound = false;
 
+  function processCapturedImage(canvas) {
+    console.log(
+      'CAPTURA EXECUTADA:',
+      canvas.width,
+      canvas.height
+    );
+
+    showInfo(
+      'IMAGEM CAPTURADA!',
+      `Imagem recebida com sucesso. Resolução: ${canvas.width} × ${canvas.height} pixels.`
+    );
+
+    beep(sound);
+  }
+
   const camera = createCameraController({
     onState(message, status = 'STANDBY') {
       $('cameraMessage').textContent = message;
@@ -14,21 +28,57 @@ import { setStatus, showInfo, beep } from './ui.js';
     },
 
     onCapture(canvas) {
-      console.log('CAPTURA EXECUTADA:', canvas.width, canvas.height);
-
-      showInfo(
-        'IMAGEM CAPTURADA!',
-        `Imagem recebida com sucesso. Resolução: ${canvas.width} × ${canvas.height} pixels.`
-      );
-
-      beep(sound);
+      processCapturedImage(canvas);
     }
   });
+
+  function openCamera() {
+    if (window.PokéScanAndroid) {
+      $('cameraMessage').textContent =
+        'Iniciando câmera nativa...';
+
+      setStatus('STARTING');
+
+      window.PokéScanAndroid.openCamera();
+    } else {
+      camera.open();
+    }
+  }
+
+  window.onNativePhotoCaptured = function(dataUrl) {
+    const image = new Image();
+
+    image.onload = function() {
+      const canvas = document.createElement('canvas');
+
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+
+      const context = canvas.getContext('2d');
+
+      context.drawImage(image, 0, 0);
+
+      processCapturedImage(canvas);
+
+      $('cameraMessage').textContent =
+        'Fotografia nativa recebida.';
+
+      setStatus('CAPTURED');
+    };
+
+    image.onerror = function() {
+      $('cameraMessage').textContent =
+        'Erro ao receber a fotografia.';
+      setStatus('CAMERA ERROR');
+    };
+
+    image.src = dataUrl;
+  };
 
   const openSearch = () => $('searchDialog').showModal();
 
   ['scan', 'quick', 'start'].forEach(id => {
-    $(id).addEventListener('click', () => camera.open());
+    $(id).addEventListener('click', openCamera);
   });
 
   ['manual', 'search'].forEach(id => {
@@ -54,8 +104,11 @@ import { setStatus, showInfo, beep } from './ui.js';
   $('cameraDialog').addEventListener('close', () => camera.close());
 
   $('capture').addEventListener('click', () => {
-    console.log('BOTÃO CAPTURAR CLICADO');
-    camera.capture();
+    if (window.PokéScanAndroid) {
+      window.PokéScanAndroid.capturePhoto();
+    } else {
+      camera.capture();
+    }
   });
 
   $('sound').addEventListener('click', () => {
@@ -76,7 +129,7 @@ import { setStatus, showInfo, beep } from './ui.js';
       const action = button.dataset.do;
       beep(sound);
 
-      if (action === 'scan') camera.open();
+      if (action === 'scan') openCamera();
       else if (action === 'search') openSearch();
       else if (action === 'catalog') {
         showInfo('CATÁLOGO TCG', 'Módulo preparado para integração.');
