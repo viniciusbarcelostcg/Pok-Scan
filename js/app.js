@@ -11,7 +11,6 @@ import { setStatus, showInfo, beep } from './ui.js';
       $('cameraMessage').textContent = message;
       setStatus(status);
     },
-
     onCapture(canvas) {
       processCapturedImage(canvas);
     }
@@ -27,13 +26,10 @@ import { setStatus, showInfo, beep } from './ui.js';
 
   function openCamera() {
     const dialog = $('cameraDialog');
-
     if (!dialog.open) dialog.showModal();
 
     if (window.PokéScanAndroid) {
-      $('cameraMessage').textContent =
-        'Iniciando câmera nativa...';
-
+      $('cameraMessage').textContent = 'Iniciando câmera nativa...';
       setStatus('STARTING');
       window.PokéScanAndroid.openCamera();
     } else {
@@ -48,20 +44,15 @@ import { setStatus, showInfo, beep } from './ui.js';
       const canvas = document.createElement('canvas');
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
-
       canvas.getContext('2d').drawImage(image, 0, 0);
 
       processCapturedImage(canvas);
-
-      $('cameraMessage').textContent =
-        'Fotografia nativa recebida.';
-
+      $('cameraMessage').textContent = 'Fotografia nativa recebida.';
       setStatus('CAPTURED');
     };
 
     image.onerror = () => {
-      $('cameraMessage').textContent =
-        'Erro ao receber a fotografia.';
+      $('cameraMessage').textContent = 'Erro ao receber a fotografia.';
       setStatus('CAMERA ERROR');
     };
 
@@ -112,8 +103,7 @@ import { setStatus, showInfo, beep } from './ui.js';
 
   $('sound').addEventListener('click', () => {
     sound = !sound;
-    $('sound').textContent =
-      '♫ Sons: ' + (sound ? 'on' : 'off');
+    $('sound').textContent = '♫ Sons: ' + (sound ? 'on' : 'off');
     beep(sound);
   });
 
