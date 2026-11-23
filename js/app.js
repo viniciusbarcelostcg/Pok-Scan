@@ -6,21 +6,6 @@ import { setStatus, showInfo, beep } from './ui.js';
   const $ = (id) => document.getElementById(id);
   let sound = false;
 
-  function processCapturedImage(canvas) {
-    console.log(
-      'CAPTURA EXECUTADA:',
-      canvas.width,
-      canvas.height
-    );
-
-    showInfo(
-      'IMAGEM CAPTURADA!',
-      `Imagem recebida com sucesso. Resolução: ${canvas.width} × ${canvas.height} pixels.`
-    );
-
-    beep(sound);
-  }
-
   const camera = createCameraController({
     onState(message, status = 'STANDBY') {
       $('cameraMessage').textContent = message;
@@ -32,13 +17,24 @@ import { setStatus, showInfo, beep } from './ui.js';
     }
   });
 
+  function processCapturedImage(canvas) {
+    showInfo(
+      'IMAGEM CAPTURADA!',
+      `Imagem recebida com sucesso. Resolução: ${canvas.width} × ${canvas.height} pixels.`
+    );
+    beep(sound);
+  }
+
   function openCamera() {
+    const dialog = $('cameraDialog');
+
+    if (!dialog.open) dialog.showModal();
+
     if (window.PokéScanAndroid) {
       $('cameraMessage').textContent =
         'Iniciando câmera nativa...';
 
       setStatus('STARTING');
-
       window.PokéScanAndroid.openCamera();
     } else {
       camera.open();
@@ -48,15 +44,12 @@ import { setStatus, showInfo, beep } from './ui.js';
   window.onNativePhotoCaptured = function(dataUrl) {
     const image = new Image();
 
-    image.onload = function() {
+    image.onload = () => {
       const canvas = document.createElement('canvas');
-
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
 
-      const context = canvas.getContext('2d');
-
-      context.drawImage(image, 0, 0);
+      canvas.getContext('2d').drawImage(image, 0, 0);
 
       processCapturedImage(canvas);
 
@@ -66,7 +59,7 @@ import { setStatus, showInfo, beep } from './ui.js';
       setStatus('CAPTURED');
     };
 
-    image.onerror = function() {
+    image.onerror = () => {
       $('cameraMessage').textContent =
         'Erro ao receber a fotografia.';
       setStatus('CAMERA ERROR');
@@ -101,7 +94,13 @@ import { setStatus, showInfo, beep } from './ui.js';
     });
   });
 
-  $('cameraDialog').addEventListener('close', () => camera.close());
+  $('cameraDialog').addEventListener('close', () => {
+    if (window.PokéScanAndroid) {
+      window.PokéScanAndroid.closeCamera();
+    } else {
+      camera.close();
+    }
+  });
 
   $('capture').addEventListener('click', () => {
     if (window.PokéScanAndroid) {
@@ -113,7 +112,8 @@ import { setStatus, showInfo, beep } from './ui.js';
 
   $('sound').addEventListener('click', () => {
     sound = !sound;
-    $('sound').textContent = '♫ Sons: ' + (sound ? 'on' : 'off');
+    $('sound').textContent =
+      '♫ Sons: ' + (sound ? 'on' : 'off');
     beep(sound);
   });
 
